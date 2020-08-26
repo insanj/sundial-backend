@@ -1,0 +1,38 @@
+{
+  "name": "sundial-backend",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "lint": "eslint --fix .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "local": "echo \"LOCAL_DISABLE_SSL=1\nLOCAL_DATABASE_URL=postgres://localhost:5432/sundial\"  > .env && node index.js",
+    "pgpull": "heroku pg:pull postgresql-rugged-84722 sundial --app sundialclick"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/insanj/sundial-backend.git"
+  },
+  "author": "insanj",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/insanj/sundial-backend/issues"
+  },
+  "homepage": "https://github.com/insanj/sundial-backend#readme",
+  "dependencies": {
+    "bcrypt": "^4.0.1",
+    "body-parser": "^1.19.0",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "google-auth-library": "^6.0.6",
+    "https": "^1.0.0",
+    "moment": "^2.24.0",
+    "pg": "^7.18.2",
+    "querystring": "^0.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-strongloop": "^2.1.0"
+  }
+}
