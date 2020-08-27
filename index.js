@@ -65,57 +65,73 @@ const syncGetTokenOrReject = (req, res) => {
 }
 
 // item endpoints
-app.post('/items/get', function(req, res) {
+app.post('/item/new', function(req, res) {
+  endpointLog('/item/new', req);
+
   const token = syncGetTokenOrReject(req, res);
   if (!token) {
     return;
   }
 
-  let reqBody = JSON.parse(Object.keys(req.body)[0]);
+  if (!req.body.itemName || !req.body.itemDate) {
+    const response = sundialDatabase.buildReject(sundialDatabase.responses.invalidParameters, null);
+    res.send(response);
+    return null;
+  } 
+
+  sundialDatabase.newItem(token, {
+    name: req.body.itemName,
+    date: req.body.itemDate,
+    metadata: req.body.itemMetadata
+  }).then(r => {
+    res.status(200).json(r);
+  }).catch(e => {
+    console.log("[/item/new] Critical Error: " + JSON.stringify(e));
+    res.send(sundialDatabase.buildReject(sundialDatabase.responses.newItem.failure, e));
+  });
+});
+
+app.post('/items/get', function(req, res) {
+  endpointLog('/items/get', req);
+
+  const token = syncGetTokenOrReject(req, res);
+  if (!token) {
+    return;
+  }
+
   sundialDatabase.getItems(token).then(r => {
     res.status(200).json(r);
   }).catch(e => {
-    res.send(e);
+    console.log("[/items/get] Critical Error: " + JSON.stringify(e));
+    res.send(sundialDatabase.buildReject(sundialDatabase.responses.getItems.failure, e));
   });
 });
 
-app.post('/item/new', function(req, res) {
-  const token = syncGetTokenOrReject(req, res);
-  if (!token) {
-    return;
-  }
-
-  let reqBody = JSON.parse(Object.keys(req.body)[0]);
-  if (!reqBody.itemName || !reqBody.itemMetadata || !reqBody.itemDate) {
-    const response = sundialDatabase.buildReject(sundialDatabase.responses.invalidParameters, null);
-    res.send(response);
-    return null;
-  }
-
-  sundialDatabase.newItem(token, { itemName: reqBody.itemName, itemMetadata : reqBody.itemMetadata, itemDate: reqBody.itemDate }).then(r => {
-    res.status(200).json(r);
-  }).catch(e => {
-    res.send(e);
-  });
-});
 
 app.post('/item/edit', function(req, res) {
+  endpointLog('/item/edit', req);
+
   const token = syncGetTokenOrReject(req, res);
   if (!token) {
     return;
   }
 
-  let reqBody = JSON.parse(Object.keys(req.body)[0]);
-  if (!reqBody.itemId || !reqBody.itemName || !reqBody.itemMetadata || !reqBody.itemDate) {
+  if (!req.body.itemId || !req.body.itemName || !req.body.itemMetadata || !req.body.itemDate) {
     const response = sundialDatabase.buildReject(sundialDatabase.responses.invalidParameters, null);
     res.send(response);
     return null;
   }
 
-  sundialDatabase.editItem(token, { itemId: reqBody.itemId, itemName: reqBody.itemName, itemMetadata : reqBody.itemMetadata, itemDate: reqBody.itemDate }).then(r => {
+  sundialDatabase.editItem(token, { 
+    id: req.body.itemId, 
+    name: req.body.itemName, 
+    date: req.body.itemDate,
+    metadata : req.body.itemMetadata, 
+  }).then(r => {
     res.status(200).json(r);
   }).catch(e => {
-    res.send(e);
+    console.log("[/item/edit] Critical Error: " + JSON.stringify(e));
+    res.send(sundialDatabase.buildReject(sundialDatabase.responses.editItem.failure, e));
   });
 });
 

@@ -22,7 +22,7 @@ const googleOAuthClient = new OAuth2Client(googleClientId);
 const pool = new Pool(poolOptions);
 const responses = {
   invalidParameters: 'Missing required parameters, check and try again!',
-  unauthenticated: 'Missing authentication for username and password',
+  unauthenticated: 'Missing authentication header',
   login: {
     success: 'Successfully logged in',
     failure: 'Failed to log in',
@@ -37,7 +37,7 @@ const responses = {
   },
   editItem: {
     success: 'Successfully edited item',
-    failure: 'Failed to edite item',
+    failure: 'Failed to edit item',
   },
   deleteItem: {
     success: 'Successfully deleted item',
@@ -101,7 +101,7 @@ async function login({ token, metadata }) {
     //   user = await pool.query('UPDATE users SET metadata = $1 WHERE googleId = $2', [metadata, googleId]);
     // } catch (updateError) {
     //   console.log(`[login] Critical Update Error: ${updateError}`);
-    //   throw new Error(`Unable to update user in our backend.`);
+    //   return Promise.reject(`Unable to update user in our backend.`);
     // }
     // step 3b: if does not exist, add entry to db and save as new user
     try {
@@ -122,61 +122,86 @@ async function login({ token, metadata }) {
 }
 
 // item endpoints
-async function getItems({ token }) {
+async function newItem(token, { name, date, metadata }) {
+  console.log(`NEW ITEM HEARD WITH TOKEN = ${token} name= ${name} date = ${date} metadata=${metadata}`);
   let loginRes;
   try {
-    loginRes = await login({ token });
+    loginRes = await login({ token: token });
   } catch (loginErr) {
-    throw new Error("Unable to authenticate");
+    console.log("[sundial-database/newItem] Critical Login Error: " + JSON.stringify(loginErr));
+    return Promise.reject("Unable to authenticate");
   }
-     
+  
+  let validMetadata = !metadata || metadata === undefined ? {} : metadata;
+
+  let validDate = date;
   const userId = loginRes.data.id;
-  let items;
+
+  let newItemRes;
   try {
-    items = await pool.query('SELECT * FROM items WHERE user_id = $1 ORDER BY date DESC', [userId]);
+    newItemRes = await pool.query('INSERT INTO items(user_id, date, name, metadata) VALUES ($1, $2, $3, $4::json) RETURNING *', [userId, validDate, name, validMetadata]);
   } catch (selectError) {
-    throw new Error("Unable to get items for user");
+    console.log("[sundial-database/newItem] Critical Insert Error: " + JSON.stringify(selectError));
+    return Promise.reject("Unable to add new item for user");
   }
 
-  return buildResolve(responses.getItems.success, items);
+  if (!newItemRes || !newItemRes.rows || newItemRes.rows.length < 0) {
+    console.log("[sundial-database/newItem] Critical Insert Return Error: Got nothing back");
+    return Promise.reject("Unable to get item after inserting");
+  }
+
+  return buildResolve(responses.newItem.success, newItemRes.rows[0]);
 }
 
-async function newItem({ token, date, metadata }) {
+async function getItems(token) {
   let loginRes;
   try {
     loginRes = await login({ token });
   } catch (loginErr) {
-    throw new Error("Unable to authenticate");
+    console.log(`[sundial-database/getItems] Critical Login Error: ${JSON.stringify(loginErr)}`);
+    return Promise.reject("Unable to authenticate");
   }
      
   const userId = loginRes.data.id;
-  let newItem;
+  let itemRes;
   try {
-    newItem = await pool.query('INSERT INTO items(user_id, date, metadata) VALUES ($1, $2, $3::json) RETURNING *', [userId, date, metadata]);
+    itemRes = await pool.query('SELECT * FROM items WHERE user_id = $1 ORDER BY date DESC', [userId]);
   } catch (selectError) {
-    throw new Error("Unable to add new item item for user");
+    console.log(`[sundial-database/getItems] Critical Select Error: ${JSON.stringify(selectError)}`);
+    return Promise.reject("Unable to get items for user");
   }
 
-  return buildResolve(responses.newItem.success, newItem);
+  if (!itemRes || !itemRes.rows) {
+    return Promise.reject("Bad item response from backend");
+  }
+
+  return buildResolve(responses.getItems.success, itemRes.rows);
 }
 
-async function editItem({ token, itemId, date, metadata}) {
+async function editItem(token, { id, name, date, metadata }) {
   let loginRes;
   try {
     loginRes = await login({ token });
   } catch (loginErr) {
-    throw new Error("Unable to authenticate");
+    console.log(`[sundial-database/editItem] Critical Login Error: ${JSON.stringify(loginErr)}`);
+    return Promise.reject("Unable to authenticate");
   }
-     
-  const userId = loginRes.data.id;
-  let updatedItem;
+    
+  const itemId = parseInt(id, 10);
+  const userId = parseInt(loginRes.data.id, 10);
+  let updatedItemRes;
   try {
-    updatedItem = await pool.query('UPDATE items SET date = $1 AND metadata = $2::json WHERE user_id = $3 AND id = $4 RETURNING *', [date, metadata, userId, itemId]);
+    updatedItemRes = await pool.query('UPDATE items SET (name, date, metadata) = ($1, $2, $3::json) WHERE user_id = $4 AND id = $5 RETURNING *', [name, date, metadata, userId, itemId]);
   } catch (updateError) {
-    throw new Error("Unable to edit existing item item for user");
+    console.log(`[sundial-database/editItem] Critical Update Error: ${JSON.stringify(updateError)}`);
+    return Promise.reject("Unable to edit existing item for user");
   }
 
-  return buildResolve(responses.editItem.success, updatedItem);
+  if (!updatedItemRes || !updatedItemRes.rows || updatedItemRes.rows.length < 1) {
+    return Promise.reject("Unable to get edited item for user");
+  }
+
+  return buildResolve(responses.editItem.success, updatedItemRes.rows);
 }
 
 async function deleteItem({ token, itemId }) {
@@ -184,7 +209,7 @@ async function deleteItem({ token, itemId }) {
   try {
     loginRes = await login({ token });
   } catch (loginErr) {
-    throw new Error("Unable to authenticate");
+    return Promise.reject("Unable to authenticate");
   }
      
   const userId = loginRes.data.id;
@@ -192,7 +217,7 @@ async function deleteItem({ token, itemId }) {
   try {
     deleteRes = await pool.query('DELETE FROM items WHERE user_id = $1 AND id = $2', [userId, itemId]);
   } catch (updateError) {
-    throw new Error("Unable to edit existing item item for user");
+    return Promise.reject("Unable to edit existing item for user");
   }
 
   return buildResolve(responses.editItem.success, []);
