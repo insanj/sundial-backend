@@ -123,7 +123,6 @@ async function login({ token, metadata }) {
 
 // item endpoints
 async function newItem(token, { name, date, metadata }) {
-  console.log(`NEW ITEM HEARD WITH TOKEN = ${token} name= ${name} date = ${date} metadata=${metadata}`);
   let loginRes;
   try {
     loginRes = await login({ token: token });
