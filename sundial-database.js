@@ -203,19 +203,22 @@ async function editItem(token, { id, name, date, metadata }) {
   return buildResolve(responses.editItem.success, updatedItemRes.rows);
 }
 
-async function deleteItem({ token, itemId }) {
+async function deleteItem(token, { id }) {
   let loginRes;
   try {
     loginRes = await login({ token });
   } catch (loginErr) {
+    console.log(`[sundial-database/deleteItem] Critical Login Error: ${JSON.stringify(loginErr)}`);
     return Promise.reject("Unable to authenticate");
   }
-     
+  
+  const itemId = parseInt(id, 10);
   const userId = loginRes.data.id;
   let deleteRes;
   try {
     deleteRes = await pool.query('DELETE FROM items WHERE user_id = $1 AND id = $2', [userId, itemId]);
-  } catch (updateError) {
+  } catch (deleteError) {
+    console.log(`[sundial-database/deleteItem] Critical Delete Error: ${JSON.stringify(deleteError)}`);
     return Promise.reject("Unable to edit existing item for user");
   }
 

@@ -136,22 +136,26 @@ app.post('/item/edit', function(req, res) {
 });
 
 app.post('/item/delete', function(req, res) {
+  endpointLog('/item/delete', req);
+
   const token = syncGetTokenOrReject(req, res);
   if (!token) {
     return;
   }
 
-  let reqBody = JSON.parse(Object.keys(req.body)[0]);
-  if (!reqBody.itemId) {
+  if (!req.body.itemId) {
     const response = sundialDatabase.buildReject(sundialDatabase.responses.invalidParameters, null);
     res.send(response);
     return null;
   }
 
-  sundialDatabase.deleteItem(token, { itemId: reqBody.itemId }).then(r => {
+  sundialDatabase.deleteItem(token, { 
+    id: req.body.itemId 
+  }).then(r => {
     res.status(200).json(r);
   }).catch(e => {
-    res.send(e);
+    console.log("[/item/delete] Critical Error: " + JSON.stringify(e));
+    res.send(sundialDatabase.buildReject(sundialDatabase.responses.deleteItem.failure, e));
   });
 });
 
